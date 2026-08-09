@@ -1,0 +1,43 @@
+name: Sync NSE Equity Universe
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 11 * * 1-5"
+
+permissions:
+  contents: write
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Download official NSE equity list
+        run: |
+          mkdir -p data
+
+          curl --fail --location --retry 4 --retry-delay 3 \
+            -A "Mozilla/5.0" \
+            -H "Accept: text/csv,*/*" \
+            -H "Referer: https://www.nseindia.com/" \
+            "https://nsearchives.nseindia.com/content/equities/EQUITY_L.csv" \
+            -o data/nse_equity.csv
+
+          test -s data/nse_equity.csv
+          grep -q "SYMBOL" data/nse_equity.csv
+
+      - name: Commit updated NSE list
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+          git add data/nse_equity.csv
+
+          git diff --cached --quiet || \
+            git commit -m "Update NSE equity universe"
+
+          git push
